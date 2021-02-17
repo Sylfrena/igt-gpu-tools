@@ -186,9 +186,18 @@ static void do_single_test(data_t *data, int x, int y)
 	igt_display_commit(display);
 
 	/* Extra vblank wait is because nonblocking cursor ioctl */
-	igt_wait_for_vblank(data->drm_fd,
+
+	if (kms_has_vblank(data->drm_fd)) {
+		igt_wait_for_vblank(data->drm_fd,
 			display->pipes[data->pipe].crtc_offset);
-	igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &crc);
+		igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &crc);
+
+	} else {
+		igt_pipe_crc_drain(pipe_crc);
+		igt_pipe_crc_get_single(pipe_crc, &crc);
+	}
+
+
 
 	if (data->flags & (TEST_DPMS | TEST_SUSPEND)) {
 		igt_crc_t crc_after;
@@ -213,7 +222,13 @@ static void do_single_test(data_t *data, int x, int y)
 						      SUSPEND_TEST_NONE);
 
 		igt_pipe_crc_start(pipe_crc);
-		igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &crc_after);
+		if (kms_has_vblank(data->drm_fd)) {
+			igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &crc_after);
+		} else {
+			igt_pipe_crc_drain(pipe_crc);
+			igt_pipe_crc_get_single(pipe_crc, &crc_after);
+		}
+
 		igt_assert_crc_equal(&crc, &crc_after);
 	}
 
@@ -451,9 +466,15 @@ static void test_cursor_alpha(data_t *data, double a)
 	/* Hardware Test - enable cursor and get PF CRC */
 	cursor_enable(data);
 	igt_display_commit(display);
-	igt_wait_for_vblank(data->drm_fd,
+	if (kms_has_vblank(data->drm_fd)) {
+		igt_wait_for_vblank(data->drm_fd,
 			display->pipes[data->pipe].crtc_offset);
-	igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &crc);
+		igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &crc);
+	} else {
+		igt_pipe_crc_drain(pipe_crc);
+		igt_pipe_crc_get_single(pipe_crc, &crc);
+	}
+
 
 	cursor_disable(data);
 	igt_remove_fb(data->drm_fd, &data->fb);
@@ -464,9 +485,14 @@ static void test_cursor_alpha(data_t *data, double a)
 	igt_put_cairo_ctx(cr);
 
 	igt_display_commit(display);
-	igt_wait_for_vblank(data->drm_fd,
+	if (kms_has_vblank(data->drm_fd)) {
+		igt_wait_for_vblank(data->drm_fd,
 			display->pipes[data->pipe].crtc_offset);
-	igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &ref_crc);
+		igt_pipe_crc_get_current(data->drm_fd, pipe_crc, &ref_crc);
+	} else {
+		igt_pipe_crc_drain(pipe_crc);
+		igt_pipe_crc_get_single(pipe_crc, &ref_crc);
+	}
 
 	/* Compare CRC from Hardware/Software tests */
 	igt_assert_crc_equal(&crc, &ref_crc);
